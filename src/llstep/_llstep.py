@@ -53,8 +53,36 @@ class Step:
         self.f(context, *args, **kwargs)
         # print(f"exit: {self.f.__name__}  args: {args}")
 
-
-def step(f):
+        
+class StepRewriter(NodeTransformer):
+    def __init__(self, f: Callable):
+        super().__init__()
+        self.f = f
+        self.step_body_rewriter = StepBodyRewriter(f)
+        self.modulevars = vars(getmodule(f))
+        
+    def visit_arguments(self, arguments_node):
+        """
+        Rewrite args of the function so that it takes a positional Context argument.
+        """
+        context_arg = arg("context", Name("Context", Load()))
+        arguments_node.args.insert(0, context_arg)
+        return fix_missing_locations(arguments_node)
+    
+    def visit_FunctionDef(self, node):
+        self.generic_visit(node)
+        # decorators = node.decorator_list
+        node.decorator_list = [
+            decorator
+            for decorator in node.decorator_list
+            if self.modulevars.get(decorator.id, None) != script and \
+                self.modulevars.get(decorator.id, None) != step
+        ]
+        node.body = [self.step_body_rewriter.visit(n) for n in node.body]
+        return node
+ 
+        
+def step(f, step_rewriter=StepRewriter, step_class=Step):
     """
     Rewrite the step function so:
     1. `context: Context` is the first parameter
@@ -63,13 +91,13 @@ def step(f):
     """
     sourcecode = getsource(f)
     in_tree = parse(sourcecode)
-    out_tree = StepRewriter(f).visit(in_tree)
+    out_tree = step_rewriter(f).visit(in_tree)
     new_func_name = out_tree.body[0].name
     func_scope = f.__globals__
     # Compile the new function in the old function's scope. If we don't change the
     # name, this actually overrides the old function with the new one
     exec(compile(out_tree, "<string>", "exec"), func_scope)
-    return functools.wraps(f)(Step(func_scope[new_func_name]))
+    return functools.wraps(f)(step_class(func_scope[new_func_name]))
 
 
 class Script(Step):
@@ -135,34 +163,7 @@ class StepBodyRewriter(NodeTransformer):
             return node
     
     
-class StepRewriter(NodeTransformer):
-    def __init__(self, f: Callable):
-        super().__init__()
-        self.f = f
-        self.step_body_rewriter = StepBodyRewriter(f)
-        self.modulevars = vars(getmodule(f))
-        
-    def visit_arguments(self, arguments_node):
-        """
-        Rewrite args of the function so that it takes a positional Context argument.
-        """
-        context_arg = arg("context", Name("Context", Load()))
-        arguments_node.args.insert(0, context_arg)
-        return fix_missing_locations(arguments_node)
-    
-    def visit_FunctionDef(self, node):
-        self.generic_visit(node)
-        # decorators = node.decorator_list
-        node.decorator_list = [
-            decorator
-            for decorator in node.decorator_list
-            if self.modulevars.get(decorator.id, None) != script and \
-                self.modulevars.get(decorator.id, None) != step
-        ]
-        node.body = [self.step_body_rewriter.visit(n) for n in node.body]
-        return node
-      
-        
+       
 class ScriptRewriter(StepRewriter):
 
     def visit_arguments(self, arguments_node):
@@ -175,7 +176,7 @@ class ScriptRewriter(StepRewriter):
         return fix_missing_locations(arguments_node)
 
 
-def script(f):
+def script(f, script_rewriter=ScriptRewriter, script_class=Script):
     """
     Rewrite the function as a Script
     remember Signature.replace
@@ -183,11 +184,10 @@ def script(f):
     sourcecode = getsource(f)
     filename = getfile(f)
     in_tree = parse(sourcecode)
-    out_tree = ScriptRewriter(f).visit(in_tree)
+    out_tree = script_rewriter(f).visit(in_tree)
     new_func_name = out_tree.body[0].name
     func_scope = f.__globals__
     # Compile the new function in the old function's scope. If we don't change the
     # name, this actually overrides the old function with the new one
     exec(compile(out_tree, "<string>", "exec"), func_scope)
-    return functools.wraps(f)(Script(func_scope[new_func_name]))
-
+    return functools.wraps(f)(script_class(func_scope[new_func_name]))
