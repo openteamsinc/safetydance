@@ -19,6 +19,11 @@ from typing import Any, Callable, Dict, Type
 import functools
 
 
+def step_decorator(f):
+    f.is_step_decorator = True
+    return f
+
+
 @dataclass(frozen=True)
 class ContextKey:
     datatype: type
@@ -69,19 +74,22 @@ class StepRewriter(NodeTransformer):
         arguments_node.args.insert(0, context_arg)
         return fix_missing_locations(arguments_node)
     
+    def is_step_decorator(self, decorator_id):
+        decorator = self.f.__globals__.get(decorator_id)
+        return hasattr(decorator, 'is_step_decorator')
+    
     def visit_FunctionDef(self, node):
         self.generic_visit(node)
-        # decorators = node.decorator_list
         node.decorator_list = [
             decorator
             for decorator in node.decorator_list
-            if self.modulevars.get(decorator.id, None) != script and \
-                self.modulevars.get(decorator.id, None) != step
+            if not self.is_step_decorator(decorator.id)
         ]
         node.body = [self.step_body_rewriter.visit(n) for n in node.body]
         return node
  
         
+@step_decorator
 def step(f, step_rewriter=StepRewriter, step_class=Step):
     """
     Rewrite the step function so:
@@ -176,6 +184,7 @@ class ScriptRewriter(StepRewriter):
         return fix_missing_locations(arguments_node)
 
 
+@step_decorator
 def script(f, script_rewriter=ScriptRewriter, script_class=Script):
     """
     Rewrite the function as a Script
