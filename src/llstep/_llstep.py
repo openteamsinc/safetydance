@@ -46,7 +46,7 @@ class NestingContext(Context):
     def __missing__(self, key):
         if self.parent is not None:
             return self.parent[key]
-        return super().__missing__(key)
+        raise KeyError(key)
 
 
 class Step:
@@ -54,9 +54,7 @@ class Step:
         self.f = f
 
     def __call__(self, context: Context, *args, **kwargs):
-        # print(f"enter: {self.f.__name__}  args: {args}  kwargs: {kwargs}")
         self.f(context, *args, **kwargs)
-        # print(f"exit: {self.f.__name__}  args: {args}")
 
         
 class StepRewriter(NodeTransformer):
@@ -141,19 +139,19 @@ class StepBodyRewriter(NodeTransformer):
         """
         call.args = [self.visit(arg) for arg in call.args]
         if type(call.func) is Attribute:
+            call.func = self.visit_Attribute(call.func)
             return call
-        else:
-            resolved_callable = self.resolve(call.func.id)
-            if resolved_callable is None:
-                return call
-            if not isinstance(resolved_callable, Step):
-                return call
-            # if it's a step, rewrite
-            new_args = [copy_location(Name("context", Load()), call)]
-            new_args.extend(call.args)
-            return fix_missing_locations(
-                copy_location(Call(call.func, new_args, call.keywords), call)
-            )
+        resolved_callable = self.resolve(call.func.id)
+        if resolved_callable is None:
+            return call
+        if not isinstance(resolved_callable, Step):
+            return call
+        # if it's a step, rewrite
+        new_args = [copy_location(Name("context", Load()), call)]
+        new_args.extend(call.args)
+        return fix_missing_locations(
+            copy_location(Call(call.func, new_args, call.keywords), call)
+        )
         
     def visit_Name(self, node):
         """
@@ -169,6 +167,11 @@ class StepBodyRewriter(NodeTransformer):
             ), node))
         else:
             return node
+        
+    def visit_Attribute(self, node):
+        if isinstance(node.value, Name):
+            node.value = self.visit_Name(node.value)
+        return node
     
     
        
