@@ -164,7 +164,7 @@ class StepBodyRewriter(NodeTransformer):
         if resolved is not None and isinstance(resolved, ContextKey):
             return fix_missing_locations(copy_location(Subscript(
                 value=Name(id="context", ctx=Load()),
-                slice=Index(value=Str(s=node.id)),
+                slice=Index(value=Name(id=node.id, ctx=Load())),
                 ctx=node.ctx
             ), node))
         else:
