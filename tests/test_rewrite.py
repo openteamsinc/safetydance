@@ -58,7 +58,7 @@ def delete_data():
     del config['Input']
 
 @script
-def test_references(structure=structure, config=config):
+def test_references():
     # Initialize structures
     structure = stepdataStruct(42, {'Douglas Adams' : "The Hitchhiker's Guide to the Galaxy"}, ['Arthur Dent'])
     config  = {'OS':'nix'}
@@ -79,4 +79,4 @@ def test_references(structure=structure, config=config):
 
 
 
-test_references(structure, config)
+test_references()
