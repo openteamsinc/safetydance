@@ -76,7 +76,3 @@ def test_references():
     assert len(structure.people) == 1
     assert structure.revenue == 42
     assert len(structure.books) == 1
-
-
-
-test_references()
