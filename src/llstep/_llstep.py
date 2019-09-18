@@ -169,8 +169,7 @@ class StepBodyRewriter(NodeTransformer):
             return node
         
     def visit_Attribute(self, node):
-        if isinstance(node.value, Name):
-            node.value = self.visit_Name(node.value)
+        node.value = self.visit(node.value)
         return node
     
     
