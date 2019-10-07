@@ -3,7 +3,6 @@ from ast import (
     Attribute,
     copy_location,
     Call,
-    dump,
     fix_missing_locations,
     Index,
     Load,
@@ -18,10 +17,6 @@ from dataclasses import dataclass
 from inspect import getclosurevars, getfile, getmodule, getsource
 from typing import Any, Callable, Dict, Type
 import functools
-import logging
-import astor
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
 
 def step_decorator(f):
     f.is_step_decorator = True
@@ -33,13 +28,6 @@ class ContextKey:
     datatype: type
     description: str
 
-class StepCheckMixin:
-    def is_step(self,resolved_callable, Step):
-        logging.info('I am now in the is_step')
-       
-        if isinstance(resolved_callable, Step):
-            return True
-        return False
 
 def step_data(key_type: Type, description: str = None):
     return ContextKey(key_type, description)
@@ -61,20 +49,33 @@ class NestingContext(Context):
 
 
 class Step:
-    def __init__(self, f: Callable):
-        self.f = f
+    def __init__(self, f: Callable, step_rewriter):
+        self.f_original = f
+        self.f = None
+        self.step_rewriter = step_rewriter
 
     def __call__(self, context: Context, *args, **kwargs):
-        logging.info("__call__")
-        logging.info(context, args, kwargs)
+        if self.f is None:
+            self.rewrite()
+        print(f"Context: {context}, {args}, {kwargs}")
         self.f(context, *args, **kwargs)
 
-        
+    def rewrite(self):
+        sourcecode = getsource(self.f_original)
+        in_tree = parse(sourcecode)
+        out_tree = self.step_rewriter(self.f_original).visit(in_tree)
+        new_func_name = out_tree.body[0].name
+        func_scope = self.f_original.__globals__
+        # Compile the new function in the old function's scope. If we don't change the
+        # name, this actually overrides the old function with the new one
+        exec(compile(out_tree, "<string>", "exec"), func_scope)
+        self.f = func_scope[new_func_name]
+
+
 class StepRewriter(NodeTransformer):
     def __init__(self, f: Callable):
         super().__init__()
         self.f = f
-        # TODO: REWRITE SO IS CALLED ON FIRST "CALL"
         self.step_body_rewriter = StepBodyRewriter(f)
         self.modulevars = vars(getmodule(f))
         
@@ -109,23 +110,13 @@ def step(f, step_rewriter=StepRewriter, step_class=Step):
     2. All references to ContextKey instances are rewritten as
        `context[key]`
     """
-    sourcecode = getsource(f)
-    in_tree = parse(sourcecode)
-    logging.info("IN TREE")
-    logging.info(astor.dump_tree(in_tree))
-    out_tree = step_rewriter(f).visit(in_tree)
-    logging.info("OUT TREE")
-    logging.info(astor.dump_tree(out_tree))
-    new_func_name = out_tree.body[0].name
-    func_scope = f.__globals__
-    # Compile the new function in the old function's scope. If we don't change the
-    # name, this actually overrides the old function with the new one
-    exec(compile(out_tree, "<string>", "exec"), func_scope)
-    return functools.wraps(f)(step_class(func_scope[new_func_name]))
+    return functools.wraps(f)(step_class(f, step_rewriter=step_rewriter))
 
 
 class Script(Step):
     def __call__(self, *args, **kwargs):
+        if self.f is None:
+            self.rewrite()
         context = NestingContext()
         if "context" in kwargs:
             context.parent = kwargs["context"]
@@ -133,7 +124,7 @@ class Script(Step):
         self.f(*args, **kwargs)
 
 
-class StepBodyRewriter(StepCheckMixin, NodeTransformer):
+class StepBodyRewriter(NodeTransformer):
     
     def __init__(self, f: Callable):
         super().__init__()
@@ -160,14 +151,9 @@ class StepBodyRewriter(StepCheckMixin, NodeTransformer):
             call.func = self.visit_Attribute(call.func)
             return call
         resolved_callable = self.resolve(call.func.id)
-        """
         if resolved_callable is None:
             return call
         if not isinstance(resolved_callable, Step):
-            return call
-        """
-        if not self.is_step(resolved_callable, Step):
-            logging.info(resolved_callable)
             return call
         # if it's a step, rewrite
         new_args = [copy_location(Name("context", Load()), call)]
@@ -215,13 +201,4 @@ def script(f, script_rewriter=ScriptRewriter, script_class=Script):
     Rewrite the function as a Script
     remember Signature.replace
     """
-    sourcecode = getsource(f)
-    filename = getfile(f)
-    in_tree = parse(sourcecode)
-    out_tree = script_rewriter(f).visit(in_tree)
-    new_func_name = out_tree.body[0].name
-    func_scope = f.__globals__
-    # Compile the new function in the old function's scope. If we don't change the
-    # name, this actually overrides the old function with the new one
-    exec(compile(out_tree, "<string>", "exec"), func_scope)
-    return functools.wraps(f)(script_class(func_scope[new_func_name]))
+    return functools.wraps(f)(script_class(f, step_rewriter=script_rewriter))
