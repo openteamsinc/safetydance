@@ -18,7 +18,6 @@ from inspect import getclosurevars, getfile, getmodule, getsource
 from typing import Any, Callable, Dict, Type
 import functools
 
-
 def step_decorator(f):
     f.is_step_decorator = True
     return f
@@ -50,13 +49,29 @@ class NestingContext(Context):
 
 
 class Step:
-    def __init__(self, f: Callable):
-        self.f = f
+    def __init__(self, f: Callable, step_rewriter):
+        self.f_original = f
+        self.f = None
+        self.step_rewriter = step_rewriter
 
     def __call__(self, context: Context, *args, **kwargs):
+        if self.f is None:
+            self.rewrite()
+        print(f"Context: {context}, {args}, {kwargs}")
         self.f(context, *args, **kwargs)
 
-        
+    def rewrite(self):
+        sourcecode = getsource(self.f_original)
+        in_tree = parse(sourcecode)
+        out_tree = self.step_rewriter(self.f_original).visit(in_tree)
+        new_func_name = out_tree.body[0].name
+        func_scope = self.f_original.__globals__
+        # Compile the new function in the old function's scope. If we don't change the
+        # name, this actually overrides the old function with the new one
+        exec(compile(out_tree, "<string>", "exec"), func_scope)
+        self.f = func_scope[new_func_name]
+
+
 class StepRewriter(NodeTransformer):
     def __init__(self, f: Callable):
         super().__init__()
@@ -95,19 +110,13 @@ def step(f, step_rewriter=StepRewriter, step_class=Step):
     2. All references to ContextKey instances are rewritten as
        `context[key]`
     """
-    sourcecode = getsource(f)
-    in_tree = parse(sourcecode)
-    out_tree = step_rewriter(f).visit(in_tree)
-    new_func_name = out_tree.body[0].name
-    func_scope = f.__globals__
-    # Compile the new function in the old function's scope. If we don't change the
-    # name, this actually overrides the old function with the new one
-    exec(compile(out_tree, "<string>", "exec"), func_scope)
-    return functools.wraps(f)(step_class(func_scope[new_func_name]))
+    return functools.wraps(f)(step_class(f, step_rewriter=step_rewriter))
 
 
 class Script(Step):
     def __call__(self, *args, **kwargs):
+        if self.f is None:
+            self.rewrite()
         context = NestingContext()
         if "context" in kwargs:
             context.parent = kwargs["context"]
@@ -192,13 +201,4 @@ def script(f, script_rewriter=ScriptRewriter, script_class=Script):
     Rewrite the function as a Script
     remember Signature.replace
     """
-    sourcecode = getsource(f)
-    filename = getfile(f)
-    in_tree = parse(sourcecode)
-    out_tree = script_rewriter(f).visit(in_tree)
-    new_func_name = out_tree.body[0].name
-    func_scope = f.__globals__
-    # Compile the new function in the old function's scope. If we don't change the
-    # name, this actually overrides the old function with the new one
-    exec(compile(out_tree, "<string>", "exec"), func_scope)
-    return functools.wraps(f)(script_class(func_scope[new_func_name]))
+    return functools.wraps(f)(script_class(f, step_rewriter=script_rewriter))
