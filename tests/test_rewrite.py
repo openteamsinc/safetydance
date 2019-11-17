@@ -6,7 +6,7 @@ These test cases will cover cases in which there need to be imports
 from other files.
 """
 import pytest
-from llstep import step, script
+from llstep import step, step_data, script
 from references import structure, config, stepdataStruct
 
 @step
@@ -76,3 +76,62 @@ def test_references():
     assert len(structure.people) == 1
     assert structure.revenue == 42
     assert len(structure.books) == 1
+
+
+accumulator = step_data(int)
+
+
+@step
+def start_accumulator_with(value: int):
+    accumulator = value
+
+
+@step
+def increment_accumulator():
+    accumulator = accumulator + 1
+
+
+@step
+def accumulated_value_is(expected: int):
+    assert accumulator == expected
+
+
+@script
+def fest_repeated_calls():
+    start_accumulator_with(1)
+    accumulated_value_is(1)
+    increment_accumulator()
+    accumulated_value_is(2)
+    increment_accumulator()
+    accumulated_value_is(3)
+
+
+@step
+def recursive_accumulator(depth: int):
+    if depth > 0:
+        increment_accumulator()
+        recursive_accumulator(depth - 1)
+
+
+another_step_was_called = step_data(bool)
+
+
+@step
+def calls_another_step():
+    another_step()
+
+
+@step
+def another_step():
+    another_step_was_called = True
+
+
+@script
+def test_nested_step_calls():
+    start_accumulator_with(0)
+    recursive_accumulator(3)
+    assert accumulator == 3
+
+    another_step_was_called = False
+    calls_another_step()
+    assert another_step_was_called == True
