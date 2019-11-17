@@ -1,6 +1,6 @@
 import pytest
 from dataclasses import dataclass
-from llstep import Context, ContextKey, script, step, step_data
+from llstep import script, step, step_data
 
 @dataclass
 class Foo:
@@ -44,4 +44,5 @@ def my_script():
     assert isinstance(arg1, int)
     assert isinstance(arg2, dict)
     
-my_script()
+def test_context_access():
+    my_script()

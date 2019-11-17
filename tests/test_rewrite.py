@@ -6,7 +6,7 @@ These test cases will cover cases in which there need to be imports
 from other files.
 """
 import pytest
-from llstep import step, script, Context
+from llstep import step, script
 from references import structure, config, stepdataStruct
 
 @step

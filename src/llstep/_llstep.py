@@ -1,10 +1,12 @@
 from ast import (
+    alias,
     arg,
     Attribute,
     copy_location,
     Call,
     fix_missing_locations,
     Index,
+    ImportFrom,
     Load,
     Name,
     NameConstant,
@@ -18,7 +20,6 @@ from inspect import getclosurevars, getfile, getmodule, getsource
 from typing import Any, Callable, Dict, Type
 import functools
 import inspect
-import logging
 
 def step_decorator(f):
     f.is_step_decorator = True
@@ -67,6 +68,8 @@ class Step:
         out_tree = self.step_rewriter(self.f_original).visit(in_tree)
         new_func_name = out_tree.body[0].name
         func_scope = self.f_original.__globals__
+        if "Context" not in self.f_original.__globals__:
+            self.f_original.__globals__["Context"] = Context
         # Compile the new function in the old function's scope. If we don't change the
         # name, this actually overrides the old function with the new one
         exec(compile(out_tree, "<string>", "exec"), func_scope)
@@ -100,7 +103,7 @@ class StepRewriter(NodeTransformer):
             if not self.is_step_decorator(decorator.id)
         ]
         node.body = [self.step_body_rewriter.visit(n) for n in node.body]
-        return node
+        return fix_missing_locations(node)
  
         
 @step_decorator
@@ -173,7 +176,6 @@ class StepBodyRewriter(NodeTransformer):
         
         if resolved is not None and isinstance(resolved, ContextKey):
             if node.id in sig.parameters:
-                logging.info(" '" + str(node.id) + "' skipped in context[] map, called from " + str(self.f))
                 return node
             else:
                 return fix_missing_locations(copy_location(Subscript(
