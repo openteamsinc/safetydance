@@ -75,7 +75,7 @@ class Step:
         # name, this actually overrides the old function with the new one
         exec(compile(out_tree, "<string>", "exec"), func_scope)
         self.f = func_scope[new_func_name]
-        #self.f.IsStep = True
+        self.f.IsStep = True
 
 
 class StepRewriter(NodeTransformer):
