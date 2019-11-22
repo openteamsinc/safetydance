@@ -75,6 +75,7 @@ class Step:
         # name, this actually overrides the old function with the new one
         exec(compile(out_tree, "<string>", "exec"), func_scope)
         self.f = func_scope[new_func_name]
+        #self.f.IsStep = True
 
 
 class StepRewriter(NodeTransformer):
@@ -159,7 +160,14 @@ class StepBodyRewriter(NodeTransformer):
         if resolved_callable is None:
             return call
         if not isinstance(resolved_callable, Step):
-            return call
+            if hasattr(resolved_callable, "IsStep"):
+                new_args = [copy_location(Name("context", Load()), call)]
+                new_args.extend(call.args)
+                return fix_missing_locations(
+                    copy_location(Call(call.func, new_args, call.keywords), call)
+                )
+            else:
+                return call
         # if it's a step, rewrite
         new_args = [copy_location(Name("context", Load()), call)]
         new_args.extend(call.args)
