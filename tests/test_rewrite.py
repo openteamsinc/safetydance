@@ -135,3 +135,25 @@ def test_nested_step_calls():
     another_step_was_called = False
     calls_another_step()
     assert another_step_was_called == True
+
+
+@step
+def step_one():
+    print("I ran")
+
+
+@step
+def step_two():
+    step_one()
+
+
+@script
+def the_script():
+    step_one()
+    step_two()
+
+
+def test_another_test_of_nested_script_calls():
+    """This test proves that nested step calls are being properly handled within a
+    script."""
+    the_script()
