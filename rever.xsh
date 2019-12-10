@@ -18,3 +18,5 @@ $PUSH_TAG_REMOTE = 'git@github.com:quansight/safetydance.git'  # Repo to push ta
 
 $GITHUB_ORG = 'quansight'  # Github org for Github releases and conda-forge
 $GITHUB_REPO = 'safetydance'  # Github repo for Github releases  and conda-forge
+
+$PYPI_SIGN = False
