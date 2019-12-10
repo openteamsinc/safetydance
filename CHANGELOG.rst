@@ -1,10 +1,10 @@
-=========
-Changelog
-=========
+======================
+safetydance Change Log
+======================
 
-Version 0.1
-===========
+.. current developments
 
-- Feature A added
-- FIX: nasty bug #1729 fixed
-- add your changes here!
+v0.1.0
+====================
+
+
