@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    Setup file for llstep.
+    Setup file for safetydance.
     Use setup.cfg to configure your project.
 
     This file was generated with PyScaffold 3.2.

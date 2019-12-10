@@ -1,6 +1,6 @@
 import pytest
 from dataclasses import dataclass
-from llstep import script, step, step_data
+from safetydance import script, step, step_data
 
 @dataclass
 class Foo:
