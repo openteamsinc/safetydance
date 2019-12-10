@@ -49,3 +49,6 @@ MANIFEST
 .venv*/
 
 .ipynb_checkpoints
+
+# Rever
+rever/
