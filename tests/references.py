@@ -3,7 +3,7 @@
 # Mock Module to import into
 # Main test method
 from dataclasses import dataclass
-from llstep import step_data
+from safetydance import step_data
 
 @dataclass
 class stepdataStruct:
