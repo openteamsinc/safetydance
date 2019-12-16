@@ -43,6 +43,6 @@ def my_script():
     #these should not affect step_gloabl, and below should pass as arg1:int, arg2:dict
     assert isinstance(arg1, int)
     assert isinstance(arg2, dict)
-    
+
 def test_context_access():
     my_script()

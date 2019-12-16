@@ -17,7 +17,7 @@ from ast import (
 )
 from dataclasses import dataclass
 from inspect import getclosurevars, getfile, getmodule, getsource
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable, Dict, Type, TypeVar, Generic
 import functools
 import inspect
 
@@ -26,19 +26,33 @@ def step_decorator(f):
     f.is_step_decorator = True
     return f
 
+T = TypeVar('T')
 
 @dataclass(frozen=True)
-class ContextKey:
-    datatype: type
+class ContextKey(Generic[T]):
+    datatype: T
     description: str
+    initializer: Callable[['Context'], T]
 
 
-def step_data(key_type: Type, description: str = None):
-    return ContextKey(key_type, description)
+def step_data(
+        key_type: Type,
+        description: str = None,
+        initializer: Callable[['Context'], Type] = None):
+    return ContextKey(key_type, description, initializer)
 
 
 class Context(Dict[ContextKey, Any]):
-    ...
+    
+    def __getitem__(self, key: ContextKey):
+        """
+        A ``Context`` differs from a plain ``Dict`` in that it will initialize a key
+        with a default value if the key defines a default value initializer.
+        """
+        if key not in self and key.initializer is not None:
+            initial_value = key.initializer(self)
+            self[key] = initial_value
+        return super().__getitem__(key)
 
 
 class NestingContext(Context):
