@@ -107,8 +107,10 @@ class StepRewriter(NodeTransformer):
         arguments_node.args.insert(0, context_arg)
         return fix_missing_locations(arguments_node)
     
-    def is_step_decorator(self, decorator_id):
-        decorator = self.f.__globals__.get(decorator_id)
+    def is_step_decorator(self, decorator):
+        if not hasattr(decorator, "id"):
+            return False
+        decorator = self.f.__globals__.get(decorator.id)
         return hasattr(decorator, 'is_step_decorator')
     
     def visit_FunctionDef(self, node):
@@ -116,7 +118,7 @@ class StepRewriter(NodeTransformer):
         node.decorator_list = [
             decorator
             for decorator in node.decorator_list
-            if not self.is_step_decorator(decorator.id)
+            if not self.is_step_decorator(decorator)
         ]
         node.body = [self.step_body_rewriter.visit(n) for n in node.body]
         return fix_missing_locations(node)
