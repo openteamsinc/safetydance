@@ -81,6 +81,9 @@ class Step:
         self.f(context, *args, **kwargs)
 
     def rewrite(self):
+        if hasattr(self.f_original, "__rewritten_step__"):
+            self.f = self.f_original.__rewritten_step__
+            return
         in_tree = code_to_ast(self.f_original)
         filename, lineno = code_to_ast.get_file_info(self.f_original)
         out_tree = self.step_rewriter(self.f_original).visit(in_tree)
@@ -95,6 +98,7 @@ class Step:
         exec(compile(out_tree, f"{filename}", "exec"), func_scope)
         self.f = func_scope[new_func_name]
         self.f.IsStep = True
+        setattr(self.f_original, "__rewritten_step__", self.f)
 
 
 class StepRewriter(NodeTransformer):
