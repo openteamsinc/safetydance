@@ -8,6 +8,7 @@ from ast import (
     Index,
     ImportFrom,
     Load,
+    Module,
     Name,
     NameConstant,
     NodeTransformer,
@@ -15,8 +16,9 @@ from ast import (
     Str,
     Subscript,
 )
+from astor import code_to_ast
 from dataclasses import dataclass
-from inspect import getclosurevars, getfile, getmodule, getsource
+from inspect import getclosurevars, getmodule
 from typing import Any, Callable, Dict, Type, TypeVar, Generic
 import functools
 import inspect
@@ -78,16 +80,18 @@ class Step:
         self.f(context, *args, **kwargs)
 
     def rewrite(self):
-        sourcecode = getsource(self.f_original)
-        in_tree = parse(sourcecode)
+        in_tree = code_to_ast(self.f_original)
+        filename, lineno = code_to_ast.get_file_info(self.f_original)
         out_tree = self.step_rewriter(self.f_original).visit(in_tree)
-        new_func_name = out_tree.body[0].name
+        new_func_name = self.f_original.__name__
         func_scope = self.f_original.__globals__
         if "Context" not in self.f_original.__globals__:
             self.f_original.__globals__["Context"] = Context
         # Compile the new function in the old function's scope. If we don't change the
         # name, this actually overrides the old function with the new one
-        exec(compile(out_tree, "<string>", "exec"), func_scope)
+        if not isinstance(out_tree, Module):
+            out_tree = Module(body=[out_tree])
+        exec(compile(out_tree, f"{filename}", "exec"), func_scope)
         self.f = func_scope[new_func_name]
         self.f.IsStep = True
 
