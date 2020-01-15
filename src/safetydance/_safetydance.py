@@ -75,6 +75,7 @@ class Step:
         self.step_rewriter = step_rewriter
 
     def __call__(self, context: Context, *args, **kwargs):
+        __tracebackhide__ = True
         if self.f is None:
             self.rewrite()
         self.f(context, *args, **kwargs)
@@ -141,6 +142,7 @@ def step(f, step_rewriter=StepRewriter, step_class=Step):
 
 class Script(Step):
     def __call__(self, *args, **kwargs):
+        __tracebackhide__ = True
         if self.f is None:
             self.rewrite()
         context = NestingContext()
