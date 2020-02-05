@@ -18,8 +18,10 @@ from ast import (
 )
 from astor import code_to_ast
 from dataclasses import dataclass
+from importlib import import_module
 from inspect import getclosurevars, getmodule
 from typing import Any, Callable, Dict, Type, TypeVar, Generic
+from .extensions import enter_step, exit_step
 import functools
 import inspect
 
@@ -28,24 +30,26 @@ def step_decorator(f):
     f.is_step_decorator = True
     return f
 
-T = TypeVar('T')
+
+T = TypeVar("T")
+
 
 @dataclass(frozen=True)
 class ContextKey(Generic[T]):
     datatype: T
     description: str
-    initializer: Callable[['Context'], T]
+    initializer: Callable[["Context"], T]
 
 
 def step_data(
-        key_type: Type,
-        description: str = None,
-        initializer: Callable[['Context'], Type] = None):
+    key_type: Type,
+    description: str = None,
+    initializer: Callable[["Context"], Type] = None,
+):
     return ContextKey(key_type, description, initializer)
 
 
 class Context(Dict[ContextKey, Any]):
-    
     def __getitem__(self, key: ContextKey):
         """
         A ``Context`` differs from a plain ``Dict`` in that it will initialize a key
@@ -78,7 +82,9 @@ class Step:
         __tracebackhide__ = True
         if self.f is None:
             self.rewrite()
+        enter_step(context, self)
         self.f(context, *args, **kwargs)
+        exit_step(context, self)
 
     def rewrite(self):
         if hasattr(self.f_original, "__rewritten_step__"):
@@ -100,6 +106,11 @@ class Step:
         self.f.IsStep = True
         setattr(self.f_original, "__rewritten_step__", self.f)
 
+        # make sure that the function hasn't been overwritten due to the reparsing of
+        # the source file.
+        m = import_module(self.__module__)
+        setattr(m, self.__name__, self)
+
 
 class StepRewriter(NodeTransformer):
     def __init__(self, f: Callable):
@@ -107,7 +118,7 @@ class StepRewriter(NodeTransformer):
         self.f = f
         self.step_body_rewriter = StepBodyRewriter(f)
         self.modulevars = vars(getmodule(f))
-        
+
     def visit_arguments(self, arguments_node):
         """
         Rewrite args of the function so that it takes a positional Context argument.
@@ -115,13 +126,13 @@ class StepRewriter(NodeTransformer):
         context_arg = arg("context", Name("Context", Load()))
         arguments_node.args.insert(0, context_arg)
         return fix_missing_locations(arguments_node)
-    
+
     def is_step_decorator(self, decorator):
         if not hasattr(decorator, "id"):
             return False
         decorator = self.f.__globals__.get(decorator.id)
-        return hasattr(decorator, 'is_step_decorator')
-    
+        return hasattr(decorator, "is_step_decorator")
+
     def visit_FunctionDef(self, node):
         self.generic_visit(node)
         node.decorator_list = [
@@ -131,8 +142,8 @@ class StepRewriter(NodeTransformer):
         ]
         node.body = [self.step_body_rewriter.visit(n) for n in node.body]
         return fix_missing_locations(node)
- 
-        
+
+
 @step_decorator
 def step(f, step_rewriter=StepRewriter, step_class=Step):
     """
@@ -153,18 +164,19 @@ class Script(Step):
         if "context" in kwargs:
             context.parent = kwargs["context"]
         kwargs["context"] = context
+        enter_step(context, self)
         self.f(*args, **kwargs)
+        exit_step(context, self)
 
 
 class StepBodyRewriter(NodeTransformer):
-    
     def __init__(self, f: Callable):
         super().__init__()
         self.f = f
         self.closurevars = getclosurevars(f)
         self.modulevars = vars(getmodule(f))
         self.step_globals = f.__globals__
-        
+
     def resolve(self, id: str):
         if id in self.closurevars.nonlocals:
             return self.closurevars.nonlocals.get(id)
@@ -172,7 +184,7 @@ class StepBodyRewriter(NodeTransformer):
             return self.closurevars.globals.get(id)
         if id in self.closurevars.unbound:
             return None
-        
+
     def visit_Call(self, call):
         """
         Is it a call to a step? If so, rewrite it!
@@ -200,7 +212,7 @@ class StepBodyRewriter(NodeTransformer):
         return fix_missing_locations(
             copy_location(Call(call.func, new_args, call.keywords), call)
         )
-        
+
     def visit_Name(self, node):
         """
         If the name resolves to a ContextKey, rewrite it as a subscript
@@ -208,28 +220,30 @@ class StepBodyRewriter(NodeTransformer):
         """
         sig = inspect.signature(self.f)
         resolved = self.step_globals.get(node.id, None)
-        
+
         if resolved is not None and isinstance(resolved, ContextKey):
             if node.id in sig.parameters:
                 return node
             else:
-                return fix_missing_locations(copy_location(Subscript(
-                    value=Name(id="context", ctx=Load()),
-                    slice=Index(value=Name(id=node.id, ctx=Load())),
-                    ctx=node.ctx
-                ), node))
+                return fix_missing_locations(
+                    copy_location(
+                        Subscript(
+                            value=Name(id="context", ctx=Load()),
+                            slice=Index(value=Name(id=node.id, ctx=Load())),
+                            ctx=node.ctx,
+                        ),
+                        node,
+                    )
+                )
         else:
             return node
-        
-        
+
     def visit_Attribute(self, node):
         node.value = self.visit(node.value)
         return node
-    
-    
-       
-class ScriptRewriter(StepRewriter):
 
+
+class ScriptRewriter(StepRewriter):
     def visit_arguments(self, arguments_node):
         """
         Rewrite args of the function so that it takes a Context argument.
