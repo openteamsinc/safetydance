@@ -9,6 +9,7 @@ import pytest
 from safetydance import step, step_data, script
 from references import structure, config, stepdataStruct
 
+
 @step
 def add_data_structure():
     """
@@ -16,8 +17,9 @@ def add_data_structure():
     that belong to the dict method. These modify the dict.
     """
     structure.revenue += 20
-    structure.books['Richard Feynmann'] = 'The Lectures on Physics Vol I'
-    structure.people.append('Travis Oliphant')
+    structure.books["Richard Feynmann"] = "The Lectures on Physics Vol I"
+    structure.people.append("Travis Oliphant")
+
 
 @step
 def add_data_config():
@@ -25,7 +27,7 @@ def add_data_config():
     config is a dict. Let's test a couple dict
     methods to make sure things are working
     """
-    info = {'RAM':'32GB', 'Input':'Keyboard', 'processors':'2'}
+    info = {"RAM": "32GB", "Input": "Keyboard", "processors": "2"}
     config.update(info)
 
 
@@ -37,31 +39,36 @@ def before_data_inject():
     assert len(structure.books) == 1
     assert len(structure.people) == 1
 
+
 @step
 def after_data_inject():
     # This is the test suite for
     # tests after data has been added
     assert structure.revenue == 62
-    assert structure.books['Richard Feynmann'] == 'The Lectures on Physics Vol I'
-    assert structure.books['Douglas Adams'] == "The Hitchhiker's Guide to the Galaxy"
+    assert structure.books["Richard Feynmann"] == "The Lectures on Physics Vol I"
+    assert structure.books["Douglas Adams"] == "The Hitchhiker's Guide to the Galaxy"
     assert len(structure.books) == 2
     assert len(structure.people) == 2
-    assert structure.people[0] == 'Arthur Dent'
-    assert config['OS'] == 'nix'
-    assert config['RAM'] == '32GB'
+    assert structure.people[0] == "Arthur Dent"
+    assert config["OS"] == "nix"
+    assert config["RAM"] == "32GB"
+
 
 @step
 def delete_data():
-    del structure.books['Richard Feynmann']
+    del structure.books["Richard Feynmann"]
     structure.revenue = 42
     del structure.people[1]
-    del config['Input']
+    del config["Input"]
+
 
 @script
 def test_references():
     # Initialize structures
-    structure = stepdataStruct(42, {'Douglas Adams' : "The Hitchhiker's Guide to the Galaxy"}, ['Arthur Dent'])
-    config  = {'OS':'nix'}
+    structure = stepdataStruct(
+        42, {"Douglas Adams": "The Hitchhiker's Guide to the Galaxy"}, ["Arthur Dent"]
+    )
+    config = {"OS": "nix"}
     # Run Prior Tests
     before_data_inject()
     # Update Data
