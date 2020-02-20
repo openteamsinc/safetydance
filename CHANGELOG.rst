@@ -4,6 +4,11 @@ safetydance Change Log
 
 .. current developments
 
+v0.2.1
+====================
+
+
+
 v0.1.5
 ====================
 
