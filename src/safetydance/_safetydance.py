@@ -100,7 +100,12 @@ class Step:
         # Compile the new function in the old function's scope. If we don't change the
         # name, this actually overrides the old function with the new one
         if not isinstance(out_tree, Module):
-            out_tree = Module(body=[out_tree])
+            # As of python 3.8.0 the signature for Module has changed, this fix should
+            # work for < 3.8 as well as 3.8
+            # out_tree = Module(body=[out_tree])
+            module = parse("")
+            module.body = [out_tree]
+            out_tree = fix_missing_locations(module)
         exec(compile(out_tree, f"{filename}", "exec"), func_scope)
         self.f = func_scope[new_func_name]
         self.f.IsStep = True
