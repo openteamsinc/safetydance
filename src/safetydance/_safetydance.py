@@ -198,6 +198,7 @@ class StepBodyRewriter(NodeTransformer):
         The call should pass the context along, that's it.
         """
         call.args = [self.visit(arg) for arg in call.args]
+        call.keywords = [self.visit(arg) for arg in call.keywords]
         if type(call.func) is Attribute:
             call.func = self.visit_Attribute(call.func)
             return call
