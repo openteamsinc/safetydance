@@ -8,6 +8,8 @@ from other files.
 import pytest
 from safetydance import step, step_data, script
 from references import structure, config, stepdataStruct
+import pkg1.pkg2.deep_step_data
+import references
 
 
 @step
@@ -20,6 +22,14 @@ def add_data_structure():
     structure.books["Richard Feynmann"] = "The Lectures on Physics Vol I"
     structure.people.append("Travis Oliphant")
 
+@step
+def add_revenue_with_fqn():
+    """
+    This step is used to validate that qualified names for step_data work as expected.
+    """
+    references.structure.revenue += 22
+    references.HasStepData.a_step_data = "It works!"
+    pkg1.pkg2.deep_step_data.deep_step_data = 42
 
 @step
 def add_data_config():
@@ -83,6 +93,11 @@ def test_references():
     assert len(structure.people) == 1
     assert structure.revenue == 42
     assert len(structure.books) == 1
+
+    add_revenue_with_fqn()
+    assert structure.revenue == 64
+    assert references.HasStepData.a_step_data == "It works!"
+    assert pkg1.pkg2.deep_step_data.deep_step_data == 42
 
 
 accumulator = step_data(int)

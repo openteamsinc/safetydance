@@ -16,14 +16,16 @@ from ast import (
     Str,
     Subscript,
 )
-from astor import code_to_ast
+from astor import code_to_ast, dump_tree
 from dataclasses import dataclass
 from importlib import import_module
 from inspect import getclosurevars, getmodule
+from types import ModuleType
 from typing import Any, Callable, Dict, Type, TypeVar, Generic
 from .extensions import enter_step, exit_step
 import functools
 import inspect
+import sys
 
 
 def step_decorator(f):
@@ -100,7 +102,12 @@ class Step:
         # Compile the new function in the old function's scope. If we don't change the
         # name, this actually overrides the old function with the new one
         if not isinstance(out_tree, Module):
-            out_tree = Module(body=[out_tree])
+            # As of python 3.8.0 the signature for Module has changed, this fix should
+            # work for < 3.8 as well as 3.8
+            # out_tree = Module(body=[out_tree])
+            module = parse("")
+            module.body = [out_tree]
+            out_tree = fix_missing_locations(module)
         exec(compile(out_tree, f"{filename}", "exec"), func_scope)
         self.f = func_scope[new_func_name]
         self.f.IsStep = True
@@ -238,10 +245,55 @@ class StepBodyRewriter(NodeTransformer):
         else:
             return node
 
+    def rewrite_as_context_lookup(self, node):
+        ctx = node.ctx
+        node.ctx = Load()
+        return fix_missing_locations(
+                copy_location(
+                    Subscript(
+                        value=Name(id="context", ctx=Load()),
+                        slice=Index(value=node),
+                        ctx=ctx,
+                    ),
+                    node,
+                )
+            )
+
     def visit_Attribute(self, node):
+        if isinstance(node.value, Attribute):
+            node, resolved = self.recurse_Attribute(node)
+            return node
         node.value = self.visit(node.value)
         return node
 
+    def resolve_Attribute_attr(self, node, resolved):
+        attr_value = getattr(resolved, node.attr)
+        if isinstance(attr_value, ContextKey):
+            node = self.rewrite_as_context_lookup(node)
+            return (node, None)
+        elif isinstance(attr_value, ModuleType) or \
+                isinstance(attr_value, type):
+            return (node, attr_value)
+        return (node, None)
+
+    def recurse_Attribute(self, node):
+        if isinstance(node.value, Name):
+            resolved = self.step_globals.get(node.value.id, None)
+            if resolved is not None:
+                if isinstance(resolved, ContextKey):
+                    node.value = self.visit_Name(node.value)
+                    return (node, None)
+                elif isinstance(resolved, ModuleType) or isinstance(resolved, type):
+                    return self.resolve_Attribute_attr(node, resolved)
+        elif isinstance(node.value, Attribute):
+            result_value_node, resolved_value = self.recurse_Attribute(node.value)
+            if resolved_value is not None:
+                return self.resolve_Attribute_attr(node, resolved_value)
+            else:
+                node.value = result_value_node
+                return (node, None)
+        return (node, None)
+                
 
 class ScriptRewriter(StepRewriter):
     def visit_arguments(self, arguments_node):
