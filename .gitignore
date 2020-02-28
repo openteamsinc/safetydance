@@ -20,6 +20,7 @@ __pycache__/*
 .settings
 .idea
 tags
+src/safetydance/logs/*
 
 # Package files
 *.egg

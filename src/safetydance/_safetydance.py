@@ -22,10 +22,19 @@ from importlib import import_module
 from inspect import getclosurevars, getmodule
 from types import ModuleType
 from typing import Any, Callable, Dict, Type, TypeVar, Generic
-from .extensions import enter_step, exit_step
+from datetime import datetime as dt
+from .extension.stepextensions import enter_step, exit_step
+from .extension.stepbodyextension import STEPBODY_EXTENSION_REGISTRY
 import functools
 import inspect
-import sys
+import sys, os
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+run_log = f'{ os.getcwd() }/safetydance/logs/{ dt.now().strftime("%m-%d-%Y|%H:%M:%S") }.log'
+fhandler = logging.FileHandler(run_log)
+logger.addHandler(fhandler)
 
 
 def step_decorator(f):
@@ -183,6 +192,20 @@ class StepBodyRewriter(NodeTransformer):
         self.closurevars = getclosurevars(f)
         self.modulevars = vars(getmodule(f))
         self.step_globals = f.__globals__
+    
+    def visit(self, node):
+        logger.debug(f'The node visited is: { dump_tree(super().visit(node)) }')
+        if(dump_tree(super().visit(node)) == "Name(id='context')"):
+            pass
+        else:
+            for transformer in STEPBODY_EXTENSION_REGISTRY:
+                node = super().visit(node)
+                logger.debug(f'I have invoked a transformer: { transformer }, which will visit: { dump_tree(node) }')
+                logger.debug(f' { transformer.visit_FunctionDef(self, node) }')
+            return super().visit(node)
+        return node
+        
+
 
     def resolve(self, id: str):
         if id in self.closurevars.nonlocals:
