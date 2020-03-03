@@ -69,7 +69,6 @@ def register_step_extension(step_extension: StepExtension):
 
 def enter_step(context: "safetydance.Context", step: "safetydance.Step"):
     for extension in STEP_EXTENSION_REGISTRY:
-        #print(f"extension: {step}")
         extension.__enter__(context, step)
 
 
