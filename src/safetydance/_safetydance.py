@@ -126,7 +126,7 @@ class StepRewriter(NodeTransformer):
         self.step_body_rewriter = StepBodyRewriter(f)
         self.modulevars = vars(getmodule(f))
 
-    def visit_arguments(self, arguments_node):
+    def fixup_arguments(self, arguments_node):
         """
         Rewrite args of the function so that it takes a positional Context argument.
         """
@@ -142,6 +142,7 @@ class StepRewriter(NodeTransformer):
 
     def visit_FunctionDef(self, node):
         self.generic_visit(node)
+        self.fixup_arguments(node.args)
         node.decorator_list = [
             decorator
             for decorator in node.decorator_list
@@ -297,7 +298,7 @@ class StepBodyRewriter(NodeTransformer):
                 
 
 class ScriptRewriter(StepRewriter):
-    def visit_arguments(self, arguments_node):
+    def fixup_arguments(self, arguments_node):
         """
         Rewrite args of the function so that it takes a Context argument.
         """

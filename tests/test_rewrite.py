@@ -74,6 +74,13 @@ def delete_data():
     del config["Input"]
 
 
+@step
+def step_using_lambda():
+    some_list = [1, 2, 3]
+    result = list(map(lambda x: x + 1, some_list))
+    assert [2, 3, 4] == result, f"{result}"
+
+
 @script
 def test_references():
     # Initialize structures
@@ -204,3 +211,8 @@ def test_another_test_of_nested_script_calls():
     """This test proves that nested step calls are being properly handled within a
     script."""
     the_script()
+
+
+@script
+def test_use_of_lambda():
+    step_using_lambda()
