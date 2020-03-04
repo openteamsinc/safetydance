@@ -22,7 +22,7 @@ from importlib import import_module
 from inspect import getclosurevars, getmodule
 from types import ModuleType
 from typing import Any, Callable, Dict, Type, TypeVar, Generic
-from .extensions import enter_step, exit_step
+from .extensions import enter_step, exit_step, STEPBODY_EXTENSION_REGISTRY
 import functools
 import inspect
 import sys
@@ -192,7 +192,13 @@ class StepBodyRewriter(NodeTransformer):
             return self.closurevars.globals.get(id)
         if id in self.closurevars.unbound:
             return None
-
+    
+    def visit(self, node):
+        node = super().visit(node)
+        for transformer in STEPBODY_EXTENSION_REGISTRY:
+            node = transformer.visit(node)
+        return node
+    
     def visit_Call(self, call):
         """
         Is it a call to a step? If so, rewrite it!

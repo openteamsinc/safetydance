@@ -27,3 +27,14 @@ def enter_step(context: "safetydance.Context", step: "safetydance.Step"):
 def exit_step(context: "safetydance.Context", step: "safetydance.Step"):
     for extension in reversed(STEP_EXTENSION_REGISTRY):
         extension.__exit__(context, step)
+
+from ast import NodeTransformer
+
+STEPBODY_EXTENSION_REGISTRY = []
+
+def register_stepbody_extension(extension: NodeTransformer):
+    '''Takes in a valid node transformer and then injects the methods
+    whose code is in NodeTransformer and then into the method for visiting
+    a Node.  
+    '''
+    STEPBODY_EXTENSION_REGISTRY.append(extension)
