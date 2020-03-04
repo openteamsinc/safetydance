@@ -19,26 +19,19 @@ class StepExtension:
 
         
 class toggle_profiles(StepExtension):
+    global profile
+    global qualified_func_names
+    
+    profile = []
+    qualified_func_names = []
+    config = configparser.ConfigParser()
+    config.read("config_file.ini")
+    for x in config['PROFILED']:
+        if config['PROFILED'][x] == 'True':
+            qualified_func_names.append(x)
+    
     def __enter__(context: "safetydance.Context", step: "safetydance.Step"):
-
-        global profile
-        global qualified_func_names
-
-        try:
-            len(qualified_func_names)
-        except:
-            qualified_func_names = []
-            config = configparser.ConfigParser()
-            config.read("config_file.ini")
-            for x in config['PROFILED']:
-                if config['PROFILED'][x] == 'True':
-                    qualified_func_names.append(x)
         
-        try:
-            len(profile)
-        except:
-            profile = []
-            
         if f'{step.__module__}.{step.__name__}' in qualified_func_names:
             print(f"===Profiling enabled for {step.__name__}===")
             profile.append(cProfile.Profile())
@@ -66,6 +59,7 @@ STEP_EXTENSION_REGISTRY = []
 
 def register_step_extension(step_extension: StepExtension):
     STEP_EXTENSION_REGISTRY.append(step_extension)
+
 
 def enter_step(context: "safetydance.Context", step: "safetydance.Step"):
     for extension in STEP_EXTENSION_REGISTRY:
