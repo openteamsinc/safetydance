@@ -17,11 +17,10 @@ class StepExtension:
         """This method will be executed following step execution."""
         ...
 
-        
+
 class toggle_profiles(StepExtension):
-    global profile
-    global qualified_func_names
-    
+
+    profile_flag = True
     profile = []
     qualified_func_names = []
     config = configparser.ConfigParser()
@@ -31,27 +30,36 @@ class toggle_profiles(StepExtension):
             qualified_func_names.append(x)
     
     def __enter__(context: "safetydance.Context", step: "safetydance.Step"):
-        
-        if f'{step.__module__}.{step.__name__}' in qualified_func_names:
-            print(f"===Profiling enabled for {step.__name__}===")
-            profile.append(cProfile.Profile())
-            profile[-1].enable()
+    
+        if f'{step.__module__}.{step.__name__}' in toggle_profiles.qualified_func_names:
+            if toggle_profiles.profile_flag:
+                print(f"===Profiling enabled for {step.__name__}===")
+                toggle_profiles.profile.append(cProfile.Profile())
+                toggle_profiles.profile[-1].enable()
+                toggle_profiles.profile_flag = False
+            else:
+                toggle_profiles.profile.append(False)
     
     def __exit__(context: "safetydance.Context", step: "safetydance.Step"):
-        if f'{step.__module__}.{step.__name__}' in qualified_func_names:
-            print(f"Printing profiling collected for {step.__name__}:")
-            try: 
-                profile_pop = profile.pop()
-                profile_pop.disable()
-            finally:
-                s = io.StringIO()
-                ps = pstats.Stats(profile_pop, stream=s).sort_stats(pstats.SortKey.CUMULATIVE)
-                ps.print_stats()
-                print(s.getvalue())
-            
-            p = psutil.Process()
-            with p.oneshot():
-                print(f"Memory: {p.memory_full_info()} \n")
+        
+        if f'{step.__module__}.{step.__name__}' in toggle_profiles.qualified_func_names:
+            if toggle_profiles.profile[-1] != False:
+                print(f"Printing profiling collected for {step.__name__}:")
+                try: 
+                    profile_pop = toggle_profiles.profile.pop()
+                    profile_pop.disable()
+                finally:
+                    s = io.StringIO()
+                    ps = pstats.Stats(profile_pop, stream=s).sort_stats(pstats.SortKey.CUMULATIVE)
+                    ps.print_stats()
+                    print(s.getvalue())
+
+                p = psutil.Process()
+                with p.oneshot():
+                    print(f"Memory: {p.memory_full_info()} \n")
+                toggle_profiles.profile_flag = True
+            else:
+                toggle_profiles.profile.pop()
 
 
 STEP_EXTENSION_REGISTRY = []
