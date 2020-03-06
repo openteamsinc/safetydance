@@ -1,6 +1,7 @@
 import numpy as np
 import logging 
 import ast
+import astor
 import safetydance.extensions as sbe
 from safetydance import step, step_data, Context, script
 
@@ -35,8 +36,25 @@ class addTheseFuncs(ast.NodeTransformer):
     '''
     def visit_Assign(self, node):
         logger.debug(self, node)
-        print('visiting assignment')
-        #self.generic_visit(node)
+        print('In Assign')
+        print(type(node.targets[0]))
+        if (type(node.targets[0]) == ast.Subscript):
+            print('I have detected the subscript.')
+            func_code = compile(source="a = sum[1,2,3]", filename='lol', mode='exec')
+            ast.parse(source="a = sum[1,2,3]", filename='lol', mode='exec')
+            print(f' { func_code.__name__ }')
+            node2 = astor.code_to_ast(func_code)
+
+            print(type(node2), f'{ astor.dump_tree(node2) }', type(node), f'{ astor.dump_tree(node) }')
+
+        return node, node2
+
+    def visit_AnnAssign(self,node):
+        logger.debug('In AnnAssign')
+        return node
+    
+    def visit_AugAssign(self, node):
+        logger.debug('In AugAssign')
         return node
     
 addTheseFuncsIni = addTheseFuncs()
