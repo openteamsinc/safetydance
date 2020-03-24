@@ -30,24 +30,39 @@ def step_four():
           f'Array 3:\n { array_three }\n')
 
 class addTheseFuncs(ast.NodeTransformer):
+    def addToNode(self, node, newnode):
+        source = astor.to_source(node)
+        print(f'S O U R C E C O D E O F N O D E'
+              f'{source}')
+        appended_node = ast.parse(source + "print('hello from within the ast!')")
+        return appended_node
     '''This class is a class that will allow us
     to visit specific pieces of the code. It is added to
     the registry here.
     '''
     def visit_Assign(self, node):
         logger.debug(self, node)
-        print('In Assign')
-        print(type(node.targets[0]))
+        print('Visiting an assign Statement')
+        print(astor.dump_tree(node.targets[0]))
+        print("O R I G I N A L N O D E ------------------")
+        print(type(node), f'{ astor.dump_tree(node) }')
         if (type(node.targets[0]) == ast.Subscript):
-            print('I have detected the subscript.')
-            func_code = compile(source="a = sum[1,2,3]", filename='lol', mode='exec')
-            ast.parse(source="a = sum[1,2,3]", filename='lol', mode='exec')
-            print(f' { func_code.__name__ }')
-            node2 = astor.code_to_ast(func_code)
-
-            print(type(node2), f'{ astor.dump_tree(node2) }', type(node), f'{ astor.dump_tree(node) }')
-
-        return node, node2
+            print('I have detected the subscript -- this is part of a context. Attach logging here!')
+            #func_code = compile(source="a = sum[1,2,3]", filename='lol', mode='exec')
+            #newnode = ast.parse(source="a = sum[1,2,3]", filename='lol', mode='exec')
+            code = ast.parse("print('hello from within the ast!')")
+            newnode = compile(code, filename="<ast>", mode="exec")
+            newnode = ast.Expr(value=newnode)
+            print("N E W N O D E  ------------- -----------------")
+            print(type(newnode), f'{ astor.dump_tree(newnode) }')
+            print("O R I G I N A L N O D E ------------------")
+            print(type(node), f'{ astor.dump_tree(node) }')
+            #newnewnode = self.addToNode(node, newnode)
+            #ast.copy_location(newnode, node)
+            #ast.fix_missing_locations(newnode)
+            print("N E W N O D E  ------------- P O S T C O P Y-----------------")
+            print(type(newnode), f'{ astor.dump_tree(newnode) }')
+        return ast.fix_missing_locations(newnode)
 
     def visit_AnnAssign(self,node):
         logger.debug('In AnnAssign')
