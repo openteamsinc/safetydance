@@ -1,11 +1,7 @@
 import numpy as np
-import logging 
 import ast
-import astor
 import safetydance.extensions as sbe
 from safetydance import step, step_data, Context, script
-
-logger = logging.getLogger(__name__)
 
 array_one = step_data(np.array)
 array_two = step_data(np.array)
@@ -29,13 +25,13 @@ def step_four():
           f'Array 2:\n { array_two }\n' 
           f'Array 3:\n { array_three }\n')
 
-class addTheseFuncs(ast.NodeTransformer):
+class variableLogger(ast.NodeTransformer):
     '''This class is a class that will allow us
     to visit specific pieces of the code. It is added to
     the registry here.
     '''
     def visit_Assign(self, node):
-         if (type(node.targets[0]) == ast.Subscript):
+         if ((type(node.targets[0]) == ast.Subscript) and node.targets[0].value.id == 'context'):
            called_func = ast.Call\
                (func=ast.Name(id='print', ctx=ast.Load()), \
                 args=[ast.Str(s=f'inside a new node here')], \
@@ -51,17 +47,17 @@ class addTheseFuncs(ast.NodeTransformer):
         logger.debug('In AugAssign')
         return node
     
-addTheseFuncsIni = addTheseFuncs()
-sbe.register_stepbody_extension(addTheseFuncsIni)
+addLogger = variableLogger()
+sbe.register_stepbody_extension(addLogger)
 
 @script
 def main():
     print(f"Running Main!")
     print(f"Current stepbody registry: { sbe.STEPBODY_EXTENSION_REGISTRY }")
     step_one()
-    #step_two()
-    #step_three()
-    #step_four()
+    step_two()
+    step_three()
+    step_four()
     print(f'Finished main!')
 
 main()
