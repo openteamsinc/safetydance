@@ -96,11 +96,8 @@ class Step:
         in_tree = code_to_ast(self.f_original)
         filename, lineno = code_to_ast.get_file_info(self.f_original)
         out_tree = self.step_rewriter(self.f_original).visit(in_tree)
-        print(f'DUMPING OUT TREE'
-              f'{ dump_tree(out_tree) }')
         new_func_name = self.f_original.__name__
         func_scope = self.f_original.__globals__
-        print(f'FUNC_SCOPE:')
         if "Context" not in self.f_original.__globals__:
             self.f_original.__globals__["Context"] = Context
         # Compile the new function in the old function's scope. If we don't change the
@@ -113,12 +110,10 @@ class Step:
             module = parse("")
             module.body = [out_tree]
             out_tree = module
-            print(f'dumping out_tree in if loop {dump(out_tree, include_attributes=True)}')
         exec(compile(out_tree, f"{filename}", "exec"), func_scope)
         self.f = func_scope[new_func_name]
         self.f.IsStep = True
         setattr(self.f_original, "__rewritten_step__", self.f)
-
         # make sure that the function hasn't been overwritten due to the reparsing of
         # the source file.
         m = import_module(self.__module__)
