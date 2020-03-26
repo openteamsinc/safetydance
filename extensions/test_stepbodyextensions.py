@@ -36,11 +36,12 @@ class addTheseFuncs(ast.NodeTransformer):
     '''
     def visit_Assign(self, node):
          if (type(node.targets[0]) == ast.Subscript):
-           newnode = ast.parse(source=(f'print("inside a node here")'), filename='<ast>', mode='exec')
-           newexpr = newnode.body[0]
-           ast.copy_location(newexpr, node)
-           ast.fix_missing_locations(newexpr)
-         return [node, newexpr]
+           called_func = ast.Call\
+               (func=ast.Name(id='print', ctx=ast.Load()), \
+                args=[ast.Str(s=f'inside a new node here')], \
+                keywords=[])
+           newnode = ast.Expr(value=called_func)
+         return [node, newnode]
 
     def visit_AnnAssign(self,node):
         logger.debug('In AnnAssign')
