@@ -4,6 +4,7 @@ from ast import (
     Attribute,
     copy_location,
     Call,
+    dump,
     fix_missing_locations,
     Index,
     ImportFrom,
@@ -95,8 +96,11 @@ class Step:
         in_tree = code_to_ast(self.f_original)
         filename, lineno = code_to_ast.get_file_info(self.f_original)
         out_tree = self.step_rewriter(self.f_original).visit(in_tree)
+        print(f'DUMPING OUT TREE'
+              f'{ dump_tree(out_tree) }')
         new_func_name = self.f_original.__name__
         func_scope = self.f_original.__globals__
+        print(f'FUNC_SCOPE:')
         if "Context" not in self.f_original.__globals__:
             self.f_original.__globals__["Context"] = Context
         # Compile the new function in the old function's scope. If we don't change the
@@ -104,10 +108,12 @@ class Step:
         if not isinstance(out_tree, Module):
             # As of python 3.8.0 the signature for Module has changed, this fix should
             # work for < 3.8 as well as 3.8
-            # out_tree = Module(body=[out_tree])
+            #print(f'dumping module { dump_tree(out_tree) } ')
+            #out_tree = Module(body=[out_tree])
             module = parse("")
             module.body = [out_tree]
-            out_tree = fix_missing_locations(module)
+            out_tree = module
+            print(f'dumping out_tree in if loop {dump(out_tree, include_attributes=True)}')
         exec(compile(out_tree, f"{filename}", "exec"), func_scope)
         self.f = func_scope[new_func_name]
         self.f.IsStep = True
@@ -148,7 +154,15 @@ class StepRewriter(NodeTransformer):
             for decorator in node.decorator_list
             if not self.is_step_decorator(decorator)
         ]
-        node.body = [self.step_body_rewriter.visit(n) for n in node.body]
+        newbody = list()
+        for n in node.body:
+            n = self.step_body_rewriter.visit(n)
+            try:
+                newbody.extend(iter(n))
+            except TypeError:
+                newbody.append(n)
+        #node.body = [self.step_body_rewriter.visit(n) for n in node.body]
+        node.body = newbody
         return fix_missing_locations(node)
 
 

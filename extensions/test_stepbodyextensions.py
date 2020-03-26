@@ -40,37 +40,49 @@ class addTheseFuncs(ast.NodeTransformer):
     to visit specific pieces of the code. It is added to
     the registry here.
     '''
+    def visit_FunctionDef(self, node):
+        print('Walking the tree. Generic Visit happening.')
+        print(f'{ast.dump(node)}')
+        return node
     def visit_Assign(self, node):
-        logger.debug(self, node)
-        print('Visiting an assign Statement')
-        print(astor.dump_tree(node.targets[0]))
-        print("O R I G I N A L N O D E ------------------")
-        print(type(node), f'{ astor.dump_tree(node) }')
-        if (type(node.targets[0]) == ast.Subscript):
-            print('I have detected the subscript -- this is part of a context. Attach logging here!')
-            #func_code = compile(source="a = sum[1,2,3]", filename='lol', mode='exec')
-            #newnode = ast.parse(source="a = sum[1,2,3]", filename='lol', mode='exec')
-            code = ast.parse("print('hello from within the ast!')")
-            newnode = compile(code, filename="<ast>", mode="exec")
-            newnode = ast.Expr(value=newnode)
-            print("N E W N O D E  ------------- -----------------")
-            print(type(newnode), f'{ astor.dump_tree(newnode) }')
-            print("O R I G I N A L N O D E ------------------")
-            print(type(node), f'{ astor.dump_tree(node) }')
-            #newnewnode = self.addToNode(node, newnode)
-            #ast.copy_location(newnode, node)
-            #ast.fix_missing_locations(newnode)
-            print("N E W N O D E  ------------- P O S T C O P Y-----------------")
-            print(type(newnode), f'{ astor.dump_tree(newnode) }')
-        return ast.fix_missing_locations(newnode)
+         logger.debug(self, node)
+         print('Visiting an assign statement')
+        #print(astor.dump_tree(node.targets[0]))
+        # print("O R I G I N A L N O D E ------------------")
+        # print(type(node), f'{ astor.dump_tree(node) }')
+        #TODO: Make sure subscript is id=context
+         if (type(node.targets[0]) == ast.Subscript):
+             print('I have detected the subscript -- this is part of a context. Attach logging here!')
+        #     func_code = compile(source="a = sum[1,2,3]", filename='lol', mode='exec')
+        #     print("O R I G I N A L N O D E ------------------")
+        #     print(type(node), f'{ ast.dump(node, include_attributes=True) }')
+             newnode = ast.parse(source=(f'print("inside a node here")'), filename='<ast>', mode='exec')
+        #     #newnode = compile(newnode, filename="<ast>", mode="exec")
+        #     #newnode = ast.copy_location(newnode, node)
+        #     #newnode = ast.fix_missing_locations(newnode)
 
-    def visit_AnnAssign(self,node):
-        logger.debug('In AnnAssign')
-        return node
+        #     #print("N E W N O D E  ------------- -----------------")
+        #     #print(type(newnode), f'{ astor.dump_tree(newnode) }', f'DUMPED NEWNODE')
+        #     newnode = '''
+        #     Expr(value=Call(func=Name(id='print', ctx=Load()), args=[Str(s='Here is a pyhton string')], keywords=[]))
+        #     '''
+        #     print(f'NODE DUMP:/n{ast.dump(node)}')
+        #     #newnewnode = self.addToNode(node, newnode)
+             newexpr = newnode.body[0]
+             ast.copy_location(newexpr, node)
+             ast.fix_missing_locations(newexpr)
+        #     # print("N E W N O D E  ------------- P O S T C O P Y-----------------")
+        #     # print(type(newnode), f'{ astor.dump_tree([node,newnode.body[0]]) }')
+        #     #ast.copy_location(newnode.body[0], node)
+         return [node, newexpr]
+
+    # def visit_AnnAssign(self,node):
+    #     logger.debug('In AnnAssign')
+    #     return node
     
-    def visit_AugAssign(self, node):
-        logger.debug('In AugAssign')
-        return node
+    # def visit_AugAssign(self, node):
+    #     logger.debug('In AugAssign')
+    #     return node
     
 addTheseFuncsIni = addTheseFuncs()
 sbe.register_stepbody_extension(addTheseFuncsIni)
