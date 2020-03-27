@@ -21,6 +21,7 @@ def step_three():
 
 @step
 def step_four():
+    print(context)
     print(f'Array 1:\n { array_one }\n'
           f'Array 2:\n { array_two }\n' 
           f'Array 3:\n { array_three }\n')
@@ -31,12 +32,18 @@ class variableLogger(ast.NodeTransformer):
     the registry here.
     '''
     def visit_Assign(self, node):
-         if ((type(node.targets[0]) == ast.Subscript) and node.targets[0].value.id == 'context'):
+         print(f'{ast.dump(node)}')
+         print(f'{node.targets[0].slice.value.id}')
+         if ((type(node.targets[0]) == ast.Subscript)\
+             and node.targets[0].value.id == 'context'):
+           code = ast.parse(source="")
            called_func = ast.Call\
                (func=ast.Name(id='print', ctx=ast.Load()), \
-                args=[ast.Str(s=f'inside a new node here')], \
+                args=[ast.Str(s=f'{[node.targets[0].slice.value.id]}')], \
                 keywords=[])
-           newnode = ast.Expr(value=called_func)
+           newnode = ast.Expr(targets=[ast.Subscript(value=Name(id='context', ctx=Load()), slice=Index(value=Name(id='array_one', ctx=Load())), ctx=Store())],\
+                              value=called_func)
+           print(f'{ast.dump(newnode)}')
          return [node, newnode]
 
     def visit_AnnAssign(self,node):
@@ -58,6 +65,7 @@ def main():
     step_two()
     step_three()
     step_four()
+    print(f'{context}')
     print(f'Finished main!')
 
 main()
