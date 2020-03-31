@@ -329,4 +329,4 @@ def script(f, script_rewriter=ScriptRewriter, script_class=Script):
     Rewrite the function as a Script
     remember Signature.replace
     """
-    return functools.wraps(f)(script_class(f, step_rewriter=script_
+    return functools.wraps(f)(script_class(f, step_rewriter=script_rewriter))
