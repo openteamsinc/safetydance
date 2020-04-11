@@ -14,6 +14,7 @@ import references
 dict_to_unpack = step_data(dict)
 args_to_unpack = step_data(list)
 
+
 @step
 def add_data_structure():
     """
@@ -24,6 +25,7 @@ def add_data_structure():
     structure.books["Richard Feynmann"] = "The Lectures on Physics Vol I"
     structure.people.append("Travis Oliphant")
 
+
 @step
 def add_revenue_with_fqn():
     """
@@ -32,6 +34,7 @@ def add_revenue_with_fqn():
     references.structure.revenue += 22
     references.HasStepData.a_step_data = "It works!"
     pkg1.pkg2.deep_step_data.deep_step_data = 42
+
 
 @step
 def add_data_config():
@@ -111,17 +114,20 @@ def test_references():
 
 accumulator = step_data(int)
 
+
 def func_with_keywords(**kwargs):
     result = 0
-    for k,v in kwargs.items():
+    for k, v in kwargs.items():
         result += v
     return result
+
 
 def func_with_starred(*args):
     result = 0
     for v in args:
         result += v
     return result
+
 
 @step
 def start_accumulator_with(value: int):
@@ -197,11 +203,7 @@ def the_script():
 
 @script
 def test_unpacking():
-    dict_to_unpack = {
-            "one": 1,
-            "two": 2,
-            "three": 3,
-            }
+    dict_to_unpack = {"one": 1, "two": 2, "three": 3}
     args_to_unpack = [1, 2, 3]
     assert 6 == func_with_keywords(**dict_to_unpack)
     assert 6 == func_with_starred(*args_to_unpack)

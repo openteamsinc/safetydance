@@ -11,7 +11,7 @@ class stepdataStruct:
     revenue: int
     books: dict
     people: list
-    
+
 
 class HasStepData:
     a_step_data = step_data(str, "this isn't recommended.")
