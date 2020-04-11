@@ -105,8 +105,8 @@ class Step:
         if not isinstance(out_tree, Module):
             # As of python 3.8.0 the signature for Module has changed, this fix should
             # work for < 3.8 as well as 3.8
-            #print(f'dumping module { dump_tree(out_tree) } ')
-            #out_tree = Module(body=[out_tree])
+            # print(f'dumping module { dump_tree(out_tree) } ')
+            # out_tree = Module(body=[out_tree])
             module = parse("")
             module.body = [out_tree]
             out_tree = module
@@ -156,7 +156,6 @@ class StepRewriter(NodeTransformer):
                 newbody.extend(iter(n))
             except TypeError:
                 newbody.append(n)
-        #node.body = [self.step_body_rewriter.visit(n) for n in node.body]
         node.body = newbody
         return fix_missing_locations(node)
 
@@ -201,13 +200,13 @@ class StepBodyRewriter(NodeTransformer):
             return self.closurevars.globals.get(id)
         if id in self.closurevars.unbound:
             return None
-    
+
     def visit(self, node):
         node = super().visit(node)
         for transformer in STEPBODY_EXTENSION_REGISTRY:
             node = transformer.visit(node)
         return node
-    
+
     def visit_Call(self, call):
         """
         Is it a call to a step? If so, rewrite it!
@@ -266,15 +265,15 @@ class StepBodyRewriter(NodeTransformer):
         ctx = node.ctx
         node.ctx = Load()
         return fix_missing_locations(
-                copy_location(
-                    Subscript(
-                        value=Name(id="context", ctx=Load()),
-                        slice=Index(value=node),
-                        ctx=ctx,
-                    ),
-                    node,
-                )
+            copy_location(
+                Subscript(
+                    value=Name(id="context", ctx=Load()),
+                    slice=Index(value=node),
+                    ctx=ctx,
+                ),
+                node,
             )
+        )
 
     def visit_Attribute(self, node):
         if isinstance(node.value, Attribute):
@@ -288,8 +287,7 @@ class StepBodyRewriter(NodeTransformer):
         if isinstance(attr_value, ContextKey):
             node = self.rewrite_as_context_lookup(node)
             return (node, None)
-        elif isinstance(attr_value, ModuleType) or \
-                isinstance(attr_value, type):
+        elif isinstance(attr_value, ModuleType) or isinstance(attr_value, type):
             return (node, attr_value)
         return (node, None)
 
@@ -310,7 +308,7 @@ class StepBodyRewriter(NodeTransformer):
                 node.value = result_value_node
                 return (node, None)
         return (node, None)
-                
+
 
 class ScriptRewriter(StepRewriter):
     def fixup_arguments(self, arguments_node):
