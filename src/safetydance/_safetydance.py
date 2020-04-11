@@ -4,6 +4,7 @@ from ast import (
     Attribute,
     copy_location,
     Call,
+    dump,
     fix_missing_locations,
     Index,
     ImportFrom,
@@ -22,7 +23,7 @@ from importlib import import_module
 from inspect import getclosurevars, getmodule
 from types import ModuleType
 from typing import Any, Callable, Dict, Type, TypeVar, Generic
-from .extensions import enter_step, exit_step
+from .extensions import enter_step, exit_step, STEPBODY_EXTENSION_REGISTRY
 import functools
 import inspect
 import sys
@@ -104,15 +105,15 @@ class Step:
         if not isinstance(out_tree, Module):
             # As of python 3.8.0 the signature for Module has changed, this fix should
             # work for < 3.8 as well as 3.8
+            # print(f'dumping module { dump_tree(out_tree) } ')
             # out_tree = Module(body=[out_tree])
             module = parse("")
             module.body = [out_tree]
-            out_tree = fix_missing_locations(module)
+            out_tree = module
         exec(compile(out_tree, f"{filename}", "exec"), func_scope)
         self.f = func_scope[new_func_name]
         self.f.IsStep = True
         setattr(self.f_original, "__rewritten_step__", self.f)
-
         # make sure that the function hasn't been overwritten due to the reparsing of
         # the source file.
         m = import_module(self.__module__)
@@ -148,7 +149,14 @@ class StepRewriter(NodeTransformer):
             for decorator in node.decorator_list
             if not self.is_step_decorator(decorator)
         ]
-        node.body = [self.step_body_rewriter.visit(n) for n in node.body]
+        newbody = list()
+        for n in node.body:
+            n = self.step_body_rewriter.visit(n)
+            try:
+                newbody.extend(iter(n))
+            except TypeError:
+                newbody.append(n)
+        node.body = newbody
         return fix_missing_locations(node)
 
 
@@ -192,6 +200,12 @@ class StepBodyRewriter(NodeTransformer):
             return self.closurevars.globals.get(id)
         if id in self.closurevars.unbound:
             return None
+
+    def visit(self, node):
+        node = super().visit(node)
+        for transformer in STEPBODY_EXTENSION_REGISTRY:
+            node = transformer.visit(node)
+        return node
 
     def visit_Call(self, call):
         """
@@ -251,15 +265,15 @@ class StepBodyRewriter(NodeTransformer):
         ctx = node.ctx
         node.ctx = Load()
         return fix_missing_locations(
-                copy_location(
-                    Subscript(
-                        value=Name(id="context", ctx=Load()),
-                        slice=Index(value=node),
-                        ctx=ctx,
-                    ),
-                    node,
-                )
+            copy_location(
+                Subscript(
+                    value=Name(id="context", ctx=Load()),
+                    slice=Index(value=node),
+                    ctx=ctx,
+                ),
+                node,
             )
+        )
 
     def visit_Attribute(self, node):
         if isinstance(node.value, Attribute):
@@ -273,8 +287,7 @@ class StepBodyRewriter(NodeTransformer):
         if isinstance(attr_value, ContextKey):
             node = self.rewrite_as_context_lookup(node)
             return (node, None)
-        elif isinstance(attr_value, ModuleType) or \
-                isinstance(attr_value, type):
+        elif isinstance(attr_value, ModuleType) or isinstance(attr_value, type):
             return (node, attr_value)
         return (node, None)
 
@@ -295,7 +308,7 @@ class StepBodyRewriter(NodeTransformer):
                 node.value = result_value_node
                 return (node, None)
         return (node, None)
-                
+
 
 class ScriptRewriter(StepRewriter):
     def fixup_arguments(self, arguments_node):
